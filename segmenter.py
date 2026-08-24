@@ -26,7 +26,7 @@ def tokenize_segments(segment: list[str], delimiters: Delimiters) -> list[list[s
 
 
 if __name__ == '__main__':
-    filepath = 'test 834.txt'
+    filepath = 'Sample_Files/test 834.txt'
     raw_text = Path(filepath).read_text()
     delimiters = detect_delimiters(raw_text)
     segments = split_segments(raw_text, delimiters)

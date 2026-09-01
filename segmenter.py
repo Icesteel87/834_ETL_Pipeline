@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from pathlib import Path
 from mapper import map_member
+import pandas as pd
 import json
 
 
@@ -36,7 +37,7 @@ def parse_member_loops(segments: list[list[str]]) -> dict:
     current = None
     for seg in segments:
         seg_id = seg[0]
-        print(seg)
+        #print(seg)
 
         if seg_id == "INS":
             if current:
@@ -65,6 +66,15 @@ def parse_member_loops(segments: list[list[str]]) -> dict:
     return {"header": header, "members": members}
 
 
+def extract_members(segments: list[list[str]]) -> dict:
+    df = pd.DataFrame(segments)
+    print(df)
+    members_loop = df[0] == 'INS'
+    df['member_seq_no'] = members_loop.cumsum()
+    member_2000_loop = {sid: g.reset_index(drop=True) for sid, g in df[df['member_seq_no'] > 0].groupby('member_seq_no')}
+    print(member_2000_loop[1])
+
+
 def map_information(file_dict: dict, delimiters: Delimiters) -> dict:
     mapped_members = [map_member(m) for m in file_dict["members"]]
     file_dict["members"] = mapped_members
@@ -72,15 +82,16 @@ def map_information(file_dict: dict, delimiters: Delimiters) -> dict:
     return file_dict
 
 if __name__ == '__main__':
-    filepath = 'Sample_Files/834CGSample_ADD.txt'
+    filepath = 'Sample_Files/MCE834Sample_1.txt'
     raw_text = Path(filepath).read_text()
     delimiters = detect_delimiters(raw_text)
     segments = split_segments(raw_text, delimiters)
     elements = tokenize_segments(segments, delimiters)
-    members = parse_member_loops(elements)
-    mapped_members = map_information(members, delimiters)
-    json_string = json.dumps(mapped_members, indent=4)
-    print(json_string)
+    df_complete = extract_members(elements)
+    #members = parse_member_loops(elements)
+    #mapped_members = map_information(members, delimiters)
+    #json_string = json.dumps(members, indent=4)
+    #print(json_string)
 
 
 

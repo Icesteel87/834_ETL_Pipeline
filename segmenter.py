@@ -1,9 +1,9 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from mapper import map_member
 import pandas as pd
+from datetime import date
 import json
-
 
 
 @dataclass(frozen=True)
@@ -68,12 +68,22 @@ def parse_member_loops(segments: list[list[str]]) -> dict:
 
 def extract_members(segments: list[list[str]]) -> dict:
     df = pd.DataFrame(segments)
-    print(df)
     members_loop = df[0] == 'INS'
     df['member_seq_no'] = members_loop.cumsum()
     member_2000_loop = {sid: g.reset_index(drop=True) for sid, g in df[df['member_seq_no'] > 0].groupby('member_seq_no')}
-    print(member_2000_loop[1])
+    return member_2000_loop
 
+
+def extract_elements(loops: dict) -> dict:
+    complete_elements = {}
+    for sid, g in loops.items():
+        df = g.dropna(axis=1, how='all')
+        df.to_csv(f"member_{sid}.csv", index=False)
+        member_mapped_dict = map_member(df)
+        print(member_mapped_dict)
+        complete_elements[sid] = member_mapped_dict
+    print(complete_elements)
+    return complete_elements
 
 def map_information(file_dict: dict, delimiters: Delimiters) -> dict:
     mapped_members = [map_member(m) for m in file_dict["members"]]
@@ -81,17 +91,18 @@ def map_information(file_dict: dict, delimiters: Delimiters) -> dict:
     #mapped_header = file_dict["header"]
     return file_dict
 
+
 if __name__ == '__main__':
-    filepath = 'Sample_Files/MCE834Sample_1.txt'
+    filepath = 'Sample_Files/test 834.txt'
     raw_text = Path(filepath).read_text()
     delimiters = detect_delimiters(raw_text)
     segments = split_segments(raw_text, delimiters)
     elements = tokenize_segments(segments, delimiters)
     df_complete = extract_members(elements)
-    #members = parse_member_loops(elements)
-    #mapped_members = map_information(members, delimiters)
-    #json_string = json.dumps(members, indent=4)
-    #print(json_string)
+    #print(df_complete)
+    members = extract_elements(df_complete)
+    json_string = json.dumps(members, indent=4)
+    print(json_string)
 
 
 

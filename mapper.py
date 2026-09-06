@@ -22,7 +22,7 @@ def register_parser(format: str) -> Callable[[SegFn], SegFn]:
     return decorator
 
 RELATIONSHIP: dict[str, str] = {
-    "18": "employee",
+    "18": "self",
     "01": "spouse",
     "19": "child",
     "15": "ward"
@@ -41,7 +41,10 @@ DTP_QUAL: dict[str, str] = {
     "356": "effective_date",
     "357": "termination_date",
     "348": "coverage_begin",
-    "349": "coverage_end"
+    "349": "coverage_end",
+    "303": "maintenance_effective",
+    "336": "employment_date",
+    "337": "employment_end_date",
 }
 
 REF_QUALIFIER: dict[str, str] = {
@@ -61,6 +64,87 @@ REF_QUALIFIER: dict[str, str] = {
     "PSS": "pay_roll_number",
     "RB": "rate_code_number",
     "ZZ": "mutually_defined",
+    "17": "client_reporting_category"
+}
+
+PER_QUALIFIER: dict[str, str] = {
+    'AP': 'alternate telephone',
+    'BN': 'Beeper Number',
+    'CP': 'Cellular Phone',
+    'EM': 'Electronic Mail',
+    'EX': 'Telephone Extension',
+    'FX': 'Facsimile',
+    'HP': 'Home Phone Number',
+    'TE': 'Telephone',
+    'WP': 'Work Phone Number'
+}
+"""
+PER03 Codes (9)
+AP	Alternate Telephone
+BN	Beeper Number
+CP	Cellular Phone
+EM	Electronic Mail
+EX	Telephone Extension
+FX	Facsimile
+HP	Home Phone Number
+TE	Telephone
+WP	Work Phone Number
+"""
+
+HD03_QUALIFER: dict[str,str] ={
+    'AG': 'Preventative Care/Wellness',
+    'AH': '24 Hour Care',
+    'AJ': 'Medicare Risk',
+    'AK': 'Mental Health',
+    'DCP': 'Dental Capitation',
+    'DEN': 'Dental',
+    'EPO': 'Exclusive Provider Organization',
+    'FAC': 'Facility',
+    'HE': 'Hearing',
+    'HLT': 'Health',
+    'HMO': 'Health Maintenance Organization',
+    'LTC': 'Long-Term Care',
+    'LTD': 'Long-Term Disability',
+    'MM': 'Major Medical',
+    'MOD': 'Mail Order Drug',
+    'PDG': 'Prescription Drug',
+    'POS': 'Point of Service',
+    'PPO': 'Preferred Provider Organization',
+    'PRA': 'Practitioners',
+    'STD': 'Short-Term Disability',
+    'UR': 'Utilization Review',
+    'VIS': 'Vision',
+}
+
+HD05_QUALIFER: dict[str,str] ={
+    'CHD': 'Children Only',
+    'DEP': 'Dependents Only',
+    'E1D': 'Employee and One Dependent',
+    'E2D': 'Employee and Two Dependents',
+    'E3D': 'Employee and Three Dependents',
+    'E5D': 'Employee and One or More Dependents',
+    'E6D': 'Employee and Two or More Dependents',
+    'E7D': 'Employee and Three or More Dependents',
+    'E8D': 'Employee and Four or More Dependents',
+    'E9D': 'Employee and Five or More Dependents',
+    'ECH': 'Employee and Children',
+    'EMP': 'Employee Only',
+    'ESP': 'Employee and Spouse',
+    'FAM': 'Family',
+    'IND': 'Individual',
+    'SPC': 'Spouse and Children',
+    'SPO': 'Spouse Only',
+    'TWO': 'Two Party',
+}
+
+AMT_QUALIFER: dict[str,str] = {
+    'B9': 'Co-insurance ',
+    'C1': 'Co-Payment Amount',
+    'D2': 'Deductible Amount',
+    'EBA': 'Expected Expenditure Amount',
+    'FK': 'Other Unlisted Amount',
+    'P3': 'Premium Amount',
+    'R': 'Spend Down',
 }
 
 
@@ -68,7 +152,7 @@ REF_QUALIFIER: dict[str, str] = {
 def map_ins(seg: list[str]) -> dict:
     return{
         "subscriber":        seg[1],
-        "relationship":      seg[2],
+        "relationship_code":      RELATIONSHIP.get(seg[2],seg[2]),
         "maintenance_type":  seg[3],
         }
 @register_parser("NM1")
@@ -90,14 +174,17 @@ def map_dtps(segs: list[str]) -> dict:
 @register_parser("HD")
 def map_hd(seg: list[str]) -> dict:
     return {
-        "Coverage Type": seg[3] if len(seg) > 3 else None,
+        "Coverage Type": HD03_QUALIFER.get(seg[3], seg[3]),
         "Coverage Description": seg[4] if len(seg) > 4 else None,
+        "Coverage Level Code": HD05_QUALIFER.get(seg[5], seg[5])
     }
 
 @register_parser("DMG")
 def map_dmg(segs: list[str]) -> dict:
     return {
         "Birth Date": f'{segs[2][4:8]}{segs[2][0:4]}' if len(segs) > 3 else None,
+        "Gender": segs[3],
+        'Marital_status': segs[4],
     }
 
 @register_parser("REF")
@@ -107,19 +194,82 @@ def map_ref(segs: list[str]) -> dict:
     }
 @register_parser("PER")
 def map_per(segs: list[str]) -> dict:
-    pass
+    return {
+        PER_QUALIFIER.get(segs[3], segs[3]): segs[4]
+    }
+
 
 @register_parser("AMT")
 def map_amt(segs: list[str]) -> dict:
-    pass
+    return {
+        AMT_QUALIFER.get(segs[1], segs[1]): segs[2]
+    }
+
 
 @register_parser("N3")
 def map_n3(segs: list[str]) -> dict:
-    pass
+    return{
+        'Address_1': segs[1],
+        'Address_2': segs[2],
+    }
 
 @register_parser("N4")
 def map_n4(segs: list[str]) -> dict:
+    return{
+        'City': segs[1],
+        'State': segs[2],
+        'Zip': segs[3],
+        'Country_code': segs[4],
+    }
+
+
+@register_parser("SE")
+def map_se(segs: list[str]) -> dict:
+    return {
+        'Segment_count': segs[1],
+        'transaction set control': segs[2],
+    }
+
+@register_parser("ST")
+def map_st(segs: list[str]) -> dict:
     pass
+
+@register_parser("ISA")
+def map_isa(segs: list[str]) -> dict:
+    pass
+
+@register_parser("GS")
+def map_gs(segs: list[str]) -> dict:
+    pass
+
+@register_parser("GE")
+def map_ge(segs: list[str]) -> dict:
+    pass
+
+@register_parser("IEA")
+def map_iea(segs: list[str]) -> dict:
+    pass
+
+@register_parser("BGN")
+def map_bgn(segs: list[str]) -> dict:
+    pass
+
+@register_parser("QTY")
+def map_qty(segs: list[str]) -> dict:
+    pass
+
+@register_parser("N1")
+def map_n1(segs: list[str]) -> dict:
+    return {
+        'Company': segs[2],
+        'ETIN': segs[3],
+    }
+
+@register_parser("LX")
+def map_lx(segs: list[str]) -> dict:
+    return {
+        'Assigned_Number': segs[1],
+    }
 
 
 def map_member(loop: pd.DataFrame) -> dict:
@@ -131,9 +281,8 @@ def map_member(loop: pd.DataFrame) -> dict:
         if parser is None:
             raise ValueError(f"No parser for {seg}")
         parsed_dict = parser(row)
-        if parsed_dict is None:
-            break
-        complete_dict.update(parsed_dict)
+        if parsed_dict is not None:
+            complete_dict.update(parsed_dict)
     return complete_dict
 
 

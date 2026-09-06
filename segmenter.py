@@ -20,14 +20,12 @@ def detect_delimiters(raw_text: str) -> Delimiters:
 
 def split_segments(raw_text: str, delimiters: Delimiters) -> list[str]:
     raw_string = raw_text.replace("\n", "").replace("\r", "")
-    text = raw_string.split(delimiters.segment_sep)
-    #print(text)
+    text = [x for x in raw_string.split(delimiters.segment_sep) if x]
     return text
 
 
 def tokenize_segments(segment: list[str], delimiters: Delimiters) -> list[list[str]]:
     elements = [segment.split(delimiters.element_sep) for segment in segment]
-    #
     return elements
 
 
@@ -70,19 +68,19 @@ def extract_members(segments: list[list[str]]) -> dict:
     df = pd.DataFrame(segments)
     members_loop = df[0] == 'INS'
     df['member_seq_no'] = members_loop.cumsum()
-    member_2000_loop = {sid: g.reset_index(drop=True) for sid, g in df[df['member_seq_no'] > 0].groupby('member_seq_no')}
+    member_2000_loop = {sid: g.reset_index(drop=True) for sid, g in df.groupby('member_seq_no')}
     return member_2000_loop
 
 
 def extract_elements(loops: dict) -> dict:
     complete_elements = {}
     for sid, g in loops.items():
-        df = g.dropna(axis=1, how='all')
+        df = g.dropna(how='all').dropna(axis=1, how='all')
         df.to_csv(f"member_{sid}.csv", index=False)
         member_mapped_dict = map_member(df)
-        print(member_mapped_dict)
+        #print(member_mapped_dict)
         complete_elements[sid] = member_mapped_dict
-    print(complete_elements)
+    #print(complete_elements)
     return complete_elements
 
 def map_information(file_dict: dict, delimiters: Delimiters) -> dict:
@@ -93,7 +91,7 @@ def map_information(file_dict: dict, delimiters: Delimiters) -> dict:
 
 
 if __name__ == '__main__':
-    filepath = 'Sample_Files/test 834.txt'
+    filepath = 'Sample_Files/bci_834_cycle_n_baseline.edi'
     raw_text = Path(filepath).read_text()
     delimiters = detect_delimiters(raw_text)
     segments = split_segments(raw_text, delimiters)
